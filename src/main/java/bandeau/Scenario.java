@@ -1,12 +1,13 @@
 package bandeau;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.LinkedList;
 
 /**
  * Classe utilitaire pour représenter la classe-association UML
  */
 class ScenarioElement {
-
+    
     Effect effect;
     int repeats;
 
@@ -21,6 +22,8 @@ class ScenarioElement {
  */
 public class Scenario {
 
+    private final ReentrantReadWriteLock lockScenario = new ReentrantReadWriteLock();
+
     private final List<ScenarioElement> myElements = new LinkedList<>();
 
     /**
@@ -30,7 +33,10 @@ public class Scenario {
      * @param repeats le nombre de répétitions pour cet effet
      */
     public void addEffect(Effect e, int repeats) {
+        lockScenario.writeLock().lock();
         myElements.add(new ScenarioElement(e, repeats));
+        lockScenario.writeLock().unlock();
+
     }
 
     /**
@@ -38,11 +44,21 @@ public class Scenario {
      *
      * @param b le bandeau ou s'afficher.
      */
-    public void playOn(Bandeau b) {
-        for (ScenarioElement element : myElements) {
-            for (int repeats = 0; repeats < element.repeats; repeats++) {
-                element.effect.playOn(b);
+    public void playOn(BandeauVerrouillable b) {
+        Thread t = new Thread() {
+            public void run() {
+                lockScenario.readLock().lock();
+                b.lock();
+                for (ScenarioElement element : myElements) {
+                    for (int repeats = 0; repeats < element.repeats; repeats++) {
+                        element.effect.playOn(b);
+                    }
+                }
+                b.unlock();
+                lockScenario.readLock().unlock();
             }
-        }
+        };
+        t.start();
+        
     }
 }
